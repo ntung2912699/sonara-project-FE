@@ -46,7 +46,7 @@ function PlaylistTrackTable({ tracks, playlist, favoriteIds, onFavorite, onDownl
       return Number.isFinite(seconds) ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '--:--';
     } },
     { key: 'favorite', label: t('Like'), className: 'table-action-cell', render: (track) => <button className={`icon-button row-heart ${favoriteIds.has(String(track.id)) ? 'is-favorite' : ''}`} aria-label={t('Toggle liked track')} onClick={() => onFavorite(track)}><Heart size={15} fill={favoriteIds.has(String(track.id)) ? 'currentColor' : 'none'} /></button> },
-    { key: 'play', label: t('Play'), className: 'table-action-cell', render: (track) => <button className="icon-button" title={t('Play track')} aria-label={`${t('Play')} ${track.title}`} disabled={!track.audio_path} onClick={() => onPlay(track)}><Music2 size={15} /></button> },
+    { key: 'play', label: t('Play'), className: 'table-action-cell', render: (track) => <button className="icon-button" title={t('Play track')} aria-label={`${t('Play')} ${track.title}`} disabled={!track.audio_path} onClick={() => onPlay(track, tracks)}><Music2 size={15} /></button> },
     { key: 'download', label: t('Download'), className: 'table-action-cell', render: (track) => <button className="icon-button" title={t('Download')} disabled={!track.downloadable} onClick={() => onDownload(track)}><ArrowDownToLine size={15} /></button> },
     { key: 'remove', label: t('Remove'), className: 'table-action-cell', render: (track) => <button className="icon-button danger-icon" title={t('Remove from playlist')} onClick={() => onRemoveTrack(playlist, track)}><X size={16} /></button> },
   ];

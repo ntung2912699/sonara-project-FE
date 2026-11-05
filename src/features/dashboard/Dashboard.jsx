@@ -15,8 +15,9 @@ import { PlaylistModal } from '../playlists/PlaylistModal.jsx';
 import { SongUploadModal } from '../catalog/SongUploadModal.jsx';
 import { SongReportModal } from '../catalog/SongReportModal.jsx';
 import { AdminPanel } from '../admin/AdminPanel.jsx';
+import { MiniAudioPlayer, PlayerPage } from '../player/PlayerPage.jsx';
 import { Toast } from '../../common/message/Message.jsx';
-import { AlertCircle, ChevronDown, ChevronRight, Download, Heart, Menu, Music2, Search, X } from '../../common/icons/index.js';
+import { AlertCircle, ChevronDown, ChevronRight, Download, Heart, Menu, Music2, Search } from '../../common/icons/index.js';
 import { usePreferences } from '../../common/preferences/PreferencesContext.jsx';
 import { DisplayPreferences } from '../../common/preferences/DisplayPreferences.jsx';
 export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
@@ -34,12 +35,34 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
   const [refresh, setRefresh] = useState(0);
   const [toast, setToast] = useState(null);
   const [currentPlayback, setCurrentPlayback] = useState(null);
+  const [playbackQueue, setPlaybackQueue] = useState([]);
+  const [playbackIndex, setPlaybackIndex] = useState(-1);
+  const [playbackLoading, setPlaybackLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0.8);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeatMode, setRepeatMode] = useState('off');
+  const [playerReturnPage, setPlayerReturnPage] = useState('discover');
   const [modal, setModal] = useState(null);
   const [playlistCache, setPlaylistCache] = useState([]);
   const audioStorageKey = `${AUDIO_KEY}:${profile?.id ?? 'current'}`;
   const [audioJobs, setAudioJobs] = useState(() => readAudioJobs(audioStorageKey));
   const [mobileNav, setMobileNav] = useState(false);
   const toastTimer = useRef(null);
+  const audioRef = useRef(null);
+  const playbackRequest = useRef(0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentPlayback?.url) return;
+    audio.volume = volume;
+    audio.play().catch((error) => {
+      setIsPlaying(false);
+      showToast(messageOf(error), 'error');
+    });
+  }, [currentPlayback?.url]);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -187,21 +210,165 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
     }
   }
 
-  async function handlePlay(track) {
+  async function playQueueTrack(queue, index) {
+    const track = queue[index];
+    if (!track?.audio_path) return;
+    const requestId = ++playbackRequest.current;
+    audioRef.current?.pause();
+    setPlaybackLoading(true);
+    setIsPlaying(false);
     try {
       const result = await api.get(`/tracks/${track.id}/play-url`, token);
+      if (requestId !== playbackRequest.current) return;
+      setPlaybackQueue(queue);
+      setPlaybackIndex(index);
       setCurrentPlayback({
-        title: track.title || 'Untitled track',
-        artist: track.artist || 'Unknown artist',
+        track,
         url: new URL(
           result.data.url,
           api.baseUrl.startsWith('http') ? `${api.baseUrl}/` : window.location.origin,
         ).toString(),
       });
+      setCurrentTime(0);
+      setDuration(Number(track.duration_seconds) || 0);
     } catch (error) {
-      showToast(messageOf(error), 'error');
+      if (requestId === playbackRequest.current) showToast(messageOf(error), 'error');
+    } finally {
+      if (requestId === playbackRequest.current) setPlaybackLoading(false);
     }
   }
+
+  async function handlePlay(track, availableTracks = items) {
+    const queue = (Array.isArray(availableTracks) ? availableTracks : [])
+      .filter((item) => item?.audio_path);
+    const trackIndex = queue.findIndex((item) => String(item.id) === String(track.id));
+    if (trackIndex < 0) queue.push(track);
+    const index = trackIndex < 0 ? queue.length - 1 : trackIndex;
+    if (String(currentPlayback?.track?.id) === String(track.id)) {
+      if (playbackLoading) {
+        playbackRequest.current += 1;
+        setPlaybackLoading(false);
+      }
+      setPlaybackQueue(queue);
+      setPlaybackIndex(index);
+      togglePlayPause();
+      return;
+    }
+    setPlayerReturnPage(page);
+    await playQueueTrack(queue, index);
+  }
+
+  function togglePlayPause() {
+    const audio = audioRef.current;
+    if (!audio || !currentPlayback) return;
+    if (audio.paused) {
+      audio.play().catch((error) => {
+        setIsPlaying(false);
+        showToast(messageOf(error), 'error');
+      });
+    } else {
+      audio.pause();
+    }
+  }
+
+  function playNext() {
+    if (!playbackQueue.length) return;
+    if (shuffle && playbackQueue.length > 1) {
+      const choices = playbackQueue.map((_, index) => index).filter((index) => index !== playbackIndex);
+      playQueueTrack(playbackQueue, choices[Math.floor(Math.random() * choices.length)]);
+      return;
+    }
+    playQueueTrack(playbackQueue, (playbackIndex + 1) % playbackQueue.length);
+  }
+
+  function playPrevious() {
+    const audio = audioRef.current;
+    if (!audio || !playbackQueue.length) return;
+    if (audio.currentTime > 3) {
+      audio.currentTime = 0;
+      setCurrentTime(0);
+      return;
+    }
+    playQueueTrack(playbackQueue, (playbackIndex - 1 + playbackQueue.length) % playbackQueue.length);
+  }
+
+  function handleTrackEnded() {
+    if (!playbackQueue.length) return;
+    if (repeatMode === 'one') {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch((error) => {
+          setIsPlaying(false);
+          showToast(messageOf(error), 'error');
+        });
+      }
+      return;
+    }
+    if (shuffle && playbackQueue.length > 1) {
+      const choices = playbackQueue.map((_, index) => index).filter((index) => index !== playbackIndex);
+      playQueueTrack(playbackQueue, choices[Math.floor(Math.random() * choices.length)]);
+      return;
+    }
+    if (playbackIndex < playbackQueue.length - 1) {
+      playQueueTrack(playbackQueue, playbackIndex + 1);
+      return;
+    }
+    if (repeatMode === 'all') {
+      playQueueTrack(playbackQueue, 0);
+      return;
+    }
+    setIsPlaying(false);
+    setCurrentTime(duration);
+  }
+
+  function toggleRepeatMode() {
+    setRepeatMode((mode) => mode === 'off' ? 'all' : mode === 'all' ? 'one' : 'off');
+  }
+
+  function openFullPlayer() {
+    if (page !== 'player') setPlayerReturnPage(page);
+    setPage('player');
+  }
+
+  function closePlayer() {
+    playbackRequest.current += 1;
+    audioRef.current?.pause();
+    setCurrentPlayback(null);
+    setPlaybackQueue([]);
+    setPlaybackIndex(-1);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }
+
+  function updateVolume(nextVolume) {
+    setVolume(nextVolume);
+    if (audioRef.current) audioRef.current.volume = nextVolume;
+  }
+
+  const playerControls = {
+    track: currentPlayback?.track,
+    queue: playbackQueue,
+    queueIndex: playbackIndex,
+    playing: isPlaying,
+    loading: playbackLoading,
+    currentTime,
+    duration,
+    volume,
+    shuffle,
+    repeatMode,
+    onPlayPause: togglePlayPause,
+    onPrevious: playPrevious,
+    onNext: playNext,
+    onSeek: (time) => {
+      if (audioRef.current) audioRef.current.currentTime = time;
+      setCurrentTime(time);
+    },
+    onVolume: updateVolume,
+    onShuffle: () => setShuffle((value) => !value),
+    onRepeat: toggleRepeatMode,
+  };
 
   async function openAddToPlaylist(track) {
     try {
@@ -222,9 +389,9 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
     }
   }
 
-  const currentTitle = t(navigation.find((item) => item.id === page)?.label || (page === 'profile' ? 'Your profile' : 'Audio studio'));
+  const currentTitle = t(navigation.find((item) => item.id === page)?.label || (page === 'profile' ? 'Your profile' : page === 'player' ? 'Now playing' : 'Audio studio'));
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${currentPlayback ? 'app-shell-player' : ''}`}>
       <Sidebar page={page} navigate={navigate} profile={profile} onLogout={logout} mobileOpen={mobileNav} closeMobile={() => setMobileNav(false)} />
       {mobileNav && <button className="mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
       <main className="main-area">
@@ -282,6 +449,9 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
             }} onDownload={handleDownload} onPlay={handlePlay} favoriteIds={favoriteIds} onFavorite={toggleFavorite} />}
           {page === 'imports' && <TikTokPage items={items} loading={loading} token={token} showToast={showToast} onRefresh={() => setRefresh((value) => value + 1)} meta={meta} pageNumber={pageNumber} setPageNumber={setPageNumber} />}
           {page === 'studio' && <AudioStudio token={token} jobs={audioJobs} setJobs={setAudioJobs} showToast={showToast} onPublished={() => setRefresh((value) => value + 1)} />}
+          {page === 'player' && (currentPlayback
+            ? <PlayerPage {...playerControls} onBack={() => setPage(playerReturnPage)} onSelectQueueTrack={(index) => playQueueTrack(playbackQueue, index)} />
+            : <section className="full-player-empty"><Music2 size={34} /><h1>{t('Nothing playing')}</h1><p>{t('Choose a track from the catalog to start listening.')}</p><button className="button button-primary" type="button" onClick={() => navigate('discover')}>{t('Explore tracks')}</button></section>)}
           {page === 'profile' && <ProfilePage profile={profile} token={token} onSaved={(nextProfile) => {
             setProfile(nextProfile);
             setUser(nextProfile);
@@ -294,11 +464,11 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
       {modal?.type === 'upload-songs' && <SongUploadModal setModal={setModal} token={token} setRefresh={setRefresh} showToast={showToast} />}
       {modal?.type === 'report-song' && <SongReportModal track={modal.track} setModal={setModal} token={token} showToast={showToast} />}
       <Toast toast={toast} onDismiss={() => setToast(null)} />
-      {currentPlayback && <div className="global-audio-player">
-        <div className="audio-player-track"><Music2 size={17} /><span><strong>{currentPlayback.title}</strong><small>{currentPlayback.artist}</small></span></div>
-        <audio controls autoPlay src={currentPlayback.url} onError={() => showToast('This licensed track could not be played.', 'error')} />
-        <button className="icon-button" aria-label="Close audio player" onClick={() => setCurrentPlayback(null)}><X size={16} /></button>
-      </div>}
+      <audio ref={audioRef} className="global-audio-element" preload="metadata" onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
+        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+        onEnded={handleTrackEnded} onError={() => { if (currentPlayback) showToast(t('This licensed track could not be played.'), 'error'); }}
+        src={currentPlayback?.url || undefined} />
+      {currentPlayback && page !== 'player' && <MiniAudioPlayer {...playerControls} track={currentPlayback.track} onOpen={openFullPlayer} onClose={closePlayer} />}
     </div>
   );
 }

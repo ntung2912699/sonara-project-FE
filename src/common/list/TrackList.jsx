@@ -48,7 +48,7 @@ export function TrackList({ items, loading, favoriteIds, onFavorite, onDownload,
               disabled={!track.audio_path}
               aria-label={track.audio_path ? `${t('Play')} ${track.title}` : t('Playback unavailable')}
               title={track.audio_path ? t('Play') : t('Playback unavailable')}
-              onClick={() => onPlay(track)}
+              onClick={() => onPlay(track, items)}
             >
               <Play size={15} />
             </button>
