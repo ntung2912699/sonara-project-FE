@@ -17,7 +17,10 @@ import { SongReportModal } from '../catalog/SongReportModal.jsx';
 import { AdminPanel } from '../admin/AdminPanel.jsx';
 import { Toast } from '../../common/message/Message.jsx';
 import { AlertCircle, ChevronDown, ChevronRight, Download, Heart, Menu, Music2, Search, X } from '../../common/icons/index.js';
+import { usePreferences } from '../../common/preferences/PreferencesContext.jsx';
+import { DisplayPreferences } from '../../common/preferences/DisplayPreferences.jsx';
 export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
+  const { t } = usePreferences();
   const [page, setPage] = useState(initialUser?.role === 'admin' ? 'admin' : 'discover');
   const [profile, setProfile] = useState(initialUser);
   const [items, setItems] = useState([]);
@@ -219,34 +222,35 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
     }
   }
 
-  const currentTitle = navigation.find((item) => item.id === page)?.label || (page === 'profile' ? 'Your profile' : 'Audio studio');
+  const currentTitle = t(navigation.find((item) => item.id === page)?.label || (page === 'profile' ? 'Your profile' : 'Audio studio'));
   return (
     <div className="app-shell">
       <Sidebar page={page} navigate={navigate} profile={profile} onLogout={logout} mobileOpen={mobileNav} closeMobile={() => setMobileNav(false)} />
       {mobileNav && <button className="mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
       <main className="main-area">
         <header className="topbar">
-          <button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setMobileNav(true)}><Menu size={20} /></button>
-          <div className="breadcrumbs"><span>SONORA</span><ChevronRight size={14} /><strong>{currentTitle}</strong></div>
+          <button className="icon-button mobile-menu" aria-label={t('Open navigation')} onClick={() => setMobileNav(true)}><Menu size={20} /></button>
+          <div className="breadcrumbs"><span>{t('SONORA')}</span><ChevronRight size={14} /><strong>{currentTitle}</strong></div>
           <form className="dashboard-search search-box" onSubmit={searchCatalog} role="search">
             <Search size={16} aria-hidden="true" />
             <input
-              aria-label="Search Sonora's licensed music catalog"
+              aria-label={t("Search Sonora's licensed music catalog")}
               value={dashboardSearch}
               onChange={(event) => setDashboardSearch(event.target.value)}
-              placeholder="Search songs and artists"
+              placeholder={t('Search songs and artists')}
             />
-            <button type="submit" className="dashboard-search-submit">Search</button>
+            <button type="submit" className="dashboard-search-submit">{t('Search')}</button>
           </form>
           <div className="topbar-actions">
-            <div className="topbar-status"><span className="status-pulse" /> Your music, in one place</div>
-            <button className="profile-chip" onClick={() => navigate('profile')} aria-label="Open profile">
-              <Avatar user={profile} size="small" /><span>{profile?.name || 'Your account'}</span><ChevronDown size={14} />
+            <div className="topbar-status"><span className="status-pulse" /> {t('Your music, in one place')}</div>
+            <DisplayPreferences />
+            <button className="profile-chip" onClick={() => navigate('profile')} aria-label={t('Open profile')}>
+              <Avatar user={profile} size="small" /><span>{profile?.name || t('Your account')}</span><ChevronDown size={14} />
             </button>
           </div>
         </header>
         <div className="content-area">
-          {loadError && <div className="global-error"><AlertCircle size={17} /><span>{loadError}</span><button onClick={() => setRefresh((value) => value + 1)}>Try again</button></div>}
+          {loadError && <div className="global-error"><AlertCircle size={17} /><span>{loadError}</span><button onClick={() => setRefresh((value) => value + 1)}>{t('Try again')}</button></div>}
           {page === 'discover' && <DiscoverPage
             items={items} loading={loading} query={query} setQuery={(value) => { setQuery(value); setPageNumber(1); }}
             favoriteIds={favoriteIds} onFavorite={toggleFavorite} onDownload={handleDownload} onPlay={handlePlay}
@@ -277,12 +281,12 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
               } catch (error) { showToast(messageOf(error), 'error'); }
             }} onDownload={handleDownload} onPlay={handlePlay} favoriteIds={favoriteIds} onFavorite={toggleFavorite} />}
           {page === 'imports' && <TikTokPage items={items} loading={loading} token={token} showToast={showToast} onRefresh={() => setRefresh((value) => value + 1)} meta={meta} pageNumber={pageNumber} setPageNumber={setPageNumber} />}
-          {page === 'studio' && <AudioStudio token={token} jobs={audioJobs} setJobs={setAudioJobs} showToast={showToast} />}
+          {page === 'studio' && <AudioStudio token={token} jobs={audioJobs} setJobs={setAudioJobs} showToast={showToast} onPublished={() => setRefresh((value) => value + 1)} />}
           {page === 'profile' && <ProfilePage profile={profile} token={token} onSaved={(nextProfile) => {
             setProfile(nextProfile);
             setUser(nextProfile);
             localStorage.setItem(USER_KEY, JSON.stringify(nextProfile));
-            showToast('Your profile has been updated.');
+            showToast(t('Your profile has been updated.'));
           }} />}
         </div>
       </main>

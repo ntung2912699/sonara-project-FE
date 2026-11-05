@@ -4,7 +4,10 @@ import { messageOf } from '../../common/message/messages.js';
 import { FormField } from '../../common/input/FormField.jsx';
 import { InlineMessage } from '../../common/message/Message.jsx';
 import { ArrowLeft, AudioLines, ChevronRight, Headphones, LockKeyhole, Mail, ShieldCheck, Sparkles, UserRound, LoaderCircle } from '../../common/icons/index.js';
+import { DisplayPreferences } from '../../common/preferences/DisplayPreferences.jsx';
+import { usePreferences } from '../../common/preferences/PreferencesContext.jsx';
 export function AuthScreen({ onAuthenticated }) {
+  const { language, t } = usePreferences();
   const search = new URLSearchParams(window.location.search);
   const [mode, setMode] = useState(search.get('token') ? 'reset' : 'login');
   const [registerChannel, setRegisterChannel] = useState('email');
@@ -47,7 +50,7 @@ export function AuthScreen({ onAuthenticated }) {
         onAuthenticated(result.data);
       } else if (mode === 'forgot') {
         await api.post('/forgot-password', { email: values.email });
-        setNotice('If an account exists for that address, a password reset link is on its way.');
+        setNotice(t('If an account exists for that address, a password reset link is on its way.'));
       } else if (mode === 'reset') {
         await api.post('/reset-password', {
           email: values.email,
@@ -55,7 +58,7 @@ export function AuthScreen({ onAuthenticated }) {
           password: values.password,
           password_confirmation: values.password_confirmation,
         });
-        setNotice('Your password has been updated. You can now sign in.');
+        setNotice(t('Your password has been updated. You can now sign in.'));
         setMode('login');
         window.history.replaceState({}, '', window.location.pathname);
       }
@@ -74,7 +77,7 @@ export function AuthScreen({ onAuthenticated }) {
       const result = await api.post('/register/resend-otp', { challenge_id: challenge.challenge_id });
       setChallenge(result.data);
       setCooldown(60);
-      setNotice('A fresh verification code has been sent.');
+      setNotice(t('A fresh verification code has been sent.'));
     } catch (requestError) {
       setError(messageOf(requestError));
     } finally {
@@ -90,74 +93,79 @@ export function AuthScreen({ onAuthenticated }) {
     reset: ['Choose a new password', 'Make it strong and easy for you to remember.'],
   };
   const [title, subtitle] = titles[mode];
+  const translatedSubtitle = mode === 'verify' && language === 'vi'
+    ? `Nhập mã gồm 6 chữ số đã gửi đến ${challenge?.destination || 'thông tin liên hệ của bạn'}.`
+    : t(subtitle);
+  const translatedTitle = t(title);
 
   return (
     <main className="auth-page">
       <div className="auth-visual">
         <div className="auth-brand"><span className="brand-mark"><AudioLines size={20} /></span> sonora</div>
         <div className="auth-copy">
-          <div className="eyebrow"><Sparkles size={14} /> A home for your sound</div>
-          <h1>Music that<br />moves <span>with you.</span></h1>
-          <p>Discover licensed sounds, build your collection, and make every playlist feel like yours.</p>
+          <div className="eyebrow"><Sparkles size={14} /> {t('A home for your sound')}</div>
+          <h1>{t('Music that')}<br />{t('moves with you.')}</h1>
+          <p>{t('Discover licensed sounds, build your collection, and make every playlist feel like yours.')}</p>
         </div>
         <div className="auth-art" aria-hidden="true">
           <div className="art-glow" />
           <div className="art-disc"><div className="disc-grooves" /><div className="disc-label"><AudioLines size={31} /></div></div>
           <div className="art-note note-one">♪</div><div className="art-note note-two">♫</div>
-          <div className="art-caption"><span className="playing-bars"><i /><i /><i /><i /></span><span>Find your frequency</span><span className="caption-dot" /></div>
+          <div className="art-caption"><span className="playing-bars"><i /><i /><i /><i /></span><span>{t('Find your frequency')}</span><span className="caption-dot" /></div>
         </div>
-        <div className="auth-footer">A little more music. A lot more you.</div>
+        <div className="auth-footer">{t('A little more music. A lot more you.')}</div>
       </div>
       <section className="auth-form-wrap">
+        <div className="auth-preferences"><DisplayPreferences /></div>
         <div className="auth-mobile-brand"><span className="brand-mark"><AudioLines size={19} /></span> sonora</div>
         <div className="auth-form-card">
-          {mode === 'verify' && <button className="text-back" onClick={() => setMode('register')}><ArrowLeft size={16} /> Back</button>}
-          <div className="auth-heading"><div className="auth-icon"><Headphones size={20} /></div><h2>{title}</h2><p>{subtitle}</p></div>
+          {mode === 'verify' && <button className="text-back" onClick={() => setMode('register')}><ArrowLeft size={16} /> {t('Back')}</button>}
+          <div className="auth-heading"><div className="auth-icon"><Headphones size={20} /></div><h2>{translatedTitle}</h2><p>{translatedSubtitle}</p></div>
           {error && <InlineMessage className="form-alert error-alert">{error}</InlineMessage>}
           {notice && <InlineMessage variant="success" className="form-alert success-alert">{notice}</InlineMessage>}
           <form onSubmit={submit} className="auth-form">
             {mode === 'login' && <>
-              <FormField label="Email address" name="email" type="email" placeholder="you@example.com" autoComplete="email" required icon={Mail} />
-              <FormField label="Password" name="password" type="password" placeholder="Enter your password" autoComplete="current-password" required icon={LockKeyhole} />
-              <div className="form-inline"><span /> <button type="button" className="text-link" onClick={() => { setMode('forgot'); setError(''); setNotice(''); }}>Forgot password?</button></div>
+              <FormField label={t('Email address')} name="email" type="email" placeholder="you@example.com" autoComplete="email" required icon={Mail} />
+              <FormField label={t('Password')} name="password" type="password" placeholder={t('Enter your password')} autoComplete="current-password" required icon={LockKeyhole} />
+              <div className="form-inline"><span /> <button type="button" className="text-link" onClick={() => { setMode('forgot'); setError(''); setNotice(''); }}>{t('Forgot password?')}</button></div>
             </>}
             {mode === 'register' && <>
-              <FormField label="Your name" name="name" placeholder="What should we call you?" autoComplete="name" required icon={UserRound} />
-              <label className="field-label">Verification method</label>
+              <FormField label={t('Your name')} name="name" placeholder={t('What should we call you?')} autoComplete="name" required icon={UserRound} />
+              <label className="field-label">{t('Verification method')}</label>
               <select className="select-input" name="channel" value={registerChannel} onChange={(event) => setRegisterChannel(event.target.value)}>
-                <option value="email">Email</option><option value="icloud">iCloud email</option><option value="zalo">Zalo phone</option>
+                <option value="email">{t('Email')}</option><option value="icloud">{t('iCloud email')}</option><option value="zalo">{t('Zalo phone')}</option>
               </select>
-              <label className="field-label" htmlFor="destination-input">{registerChannel === 'zalo' ? 'Phone number' : 'Email address'}</label>
+              <label className="field-label" htmlFor="destination-input">{registerChannel === 'zalo' ? t('Phone number') : t('Email address')}</label>
               <div className="input-wrap">{registerChannel === 'zalo' ? <UserRound size={17} /> : <Mail size={17} />}<input id="destination-input" name="destination" type={registerChannel === 'zalo' ? 'tel' : 'email'} autoComplete={registerChannel === 'zalo' ? 'tel' : 'email'} placeholder={registerChannel === 'zalo' ? '+84901234567' : 'you@example.com'} required /></div>
-              <FormField label="Password" name="password" type="password" placeholder="At least 8 characters" autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
-              <FormField label="Confirm password" name="password_confirmation" type="password" placeholder="Enter it again" autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
-              <p className="form-hint">We’ll send you a one-time code to verify your account.</p>
+              <FormField label={t('Password')} name="password" type="password" placeholder={t('At least 8 characters')} autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
+              <FormField label={t('Confirm password')} name="password_confirmation" type="password" placeholder={t('Enter it again')} autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
+              <p className="form-hint">{t('We’ll send you a one-time code to verify your account.')}</p>
             </>}
             {mode === 'verify' && <>
-              <FormField label="6-digit verification code" name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="000000" autoComplete="one-time-code" required className="otp-field" />
+              <FormField label={t('6-digit verification code')} name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="000000" autoComplete="one-time-code" required className="otp-field" />
               <button type="button" className="text-link resend-link" disabled={busy || cooldown > 0} onClick={resendCode}>
-                {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+                {cooldown > 0 ? `${t('Resend code in')} ${cooldown}s` : t('Resend code')}
               </button>
             </>}
-            {mode === 'forgot' && <FormField label="Email address" name="email" type="email" placeholder="you@example.com" autoComplete="email" required icon={Mail} />}
+            {mode === 'forgot' && <FormField label={t('Email address')} name="email" type="email" placeholder="you@example.com" autoComplete="email" required icon={Mail} />}
             {mode === 'reset' && <>
-              <FormField label="Email address" name="email" type="email" defaultValue={search.get('email') || ''} placeholder="you@example.com" autoComplete="email" required icon={Mail} />
-              <FormField label="New password" name="password" type="password" placeholder="At least 8 characters" autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
-              <FormField label="Confirm new password" name="password_confirmation" type="password" placeholder="Enter it again" autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
+              <FormField label={t('Email address')} name="email" type="email" defaultValue={search.get('email') || ''} placeholder="you@example.com" autoComplete="email" required icon={Mail} />
+              <FormField label={t('New password')} name="password" type="password" placeholder={t('At least 8 characters')} autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
+              <FormField label={t('Confirm new password')} name="password_confirmation" type="password" placeholder={t('Enter it again')} autoComplete="new-password" required minLength={8} icon={LockKeyhole} />
             </>}
             <button type="submit" className="button button-primary auth-submit" disabled={busy}>
               {busy ? <LoaderCircle className="spin" size={17} /> : null}
-              {busy ? 'Please wait…' : ({ login: 'Sign in', register: 'Create account', verify: 'Verify & continue', forgot: 'Send reset link', reset: 'Update password' }[mode])}
+              {busy ? t('Please wait…') : t(({ login: 'Sign in', register: 'Create account', verify: 'Verify & continue', forgot: 'Send reset link', reset: 'Update password' }[mode]))}
               {!busy && <ChevronRight size={17} />}
             </button>
           </form>
           <div className="auth-switch">
-            {mode === 'login' ? <>New to Sonora? <button onClick={() => { setMode('register'); setError(''); setNotice(''); }}>Create an account</button></>
-              : mode === 'register' ? <>Already have an account? <button onClick={() => { setMode('login'); setError(''); }}>Sign in</button></>
-                : mode === 'verify' ? <span className="fine-print"><ShieldCheck size={14} /> Your account is only created after verification.</span>
-                  : <button onClick={() => { setMode('login'); setError(''); setNotice(''); }}>Back to sign in</button>}
+            {mode === 'login' ? <>{t('New to Sonora?')} <button onClick={() => { setMode('register'); setError(''); setNotice(''); }}>{t('Create an account')}</button></>
+              : mode === 'register' ? <>{t('Already have an account?')} <button onClick={() => { setMode('login'); setError(''); }}>{t('Sign in')}</button></>
+                : mode === 'verify' ? <span className="fine-print"><ShieldCheck size={14} /> {t('Your account is only created after verification.')}</span>
+                  : <button onClick={() => { setMode('login'); setError(''); setNotice(''); }}>{t('Back to sign in')}</button>}
           </div>
-          <div className="auth-legal">By continuing, you agree to use music in accordance with its listed license.</div>
+          <div className="auth-legal">{t('By continuing, you agree to use music in accordance with its listed license.')}</div>
         </div>
       </section>
     </main>
