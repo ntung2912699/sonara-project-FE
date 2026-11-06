@@ -665,9 +665,52 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .full-player-empty { display: flex; min-height: 55vh; flex-direction: column; align-items: center; justify-content: center; color: #7657ee; text-align: center; }
 .full-player-empty h1 { margin: 14px 0 4px; color: #34343d; font-size: 23px; }
 .full-player-empty p { color: #8d8d98; font-size: 12px; }
+.topbar-player-link { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid #e8e4f3; border-radius: 9px; color: #684ed4; background: #f7f5ff; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.topbar-player-link i { width: 7px; height: 7px; border-radius: 50%; background: #3ab58a; box-shadow: 0 0 0 3px #3ab58a25; }
+.karaoke-step-heading { display: flex; align-items: center; gap: 12px; margin: 3px 0 17px; }
+.karaoke-step-heading > span { display: grid; width: 31px; height: 31px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #684ed4; background: #f0ecff; font-size: 12px; font-weight: 750; }
+.karaoke-step-heading h2 { margin: 0; color: #34343d; font-size: 15px; }
+.karaoke-step-heading p { margin: 4px 0 0; color: #898b96; font-size: 11px; }
+.karaoke-step-record { padding-top: 21px; margin-top: 23px; border-top: 1px solid #efedf3; }
+.karaoke-room-card { max-width: 970px; padding: 20px; margin: 19px 0; border: 1px solid #e8e5f0; border-radius: 14px; background: linear-gradient(135deg, #fff, #faf9ff); box-shadow: 0 9px 26px #28213708; }
+.karaoke-room-heading { display: flex; align-items: center; gap: 12px; }
+.karaoke-room-icon { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 12px; color: #7054dc; background: #f0ecff; }
+.karaoke-room-heading h2 { margin: 0; color: #353540; font-size: 15px; }
+.karaoke-room-heading p { margin: 4px 0 0; color: #858692; font-size: 11px; line-height: 1.5; }
+.karaoke-room-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 17px; }
+.karaoke-room-divider { color: #9596a0; font-size: 10px; }
+.karaoke-join-form { display: flex; flex: 1; min-width: min(100%, 300px); gap: 7px; }
+.karaoke-join-form .text-input { min-width: 0; flex: 1; }
+.karaoke-join-form .button, .karaoke-room-card .button { min-height: 38px; }
+.karaoke-search-state { display: flex; align-items: center; gap: 7px; padding: 9px 13px; margin: 0; color: #777987; font-size: 11px; }
+.karaoke-room-hint { display: flex; align-items: center; gap: 6px; margin: 11px 0 0; color: #77718d; font-size: 10px; line-height: 1.5; }
+.karaoke-room-active { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.5fr) auto; align-items: center; gap: 14px; margin-top: 16px; }
+.karaoke-room-code { display: flex; align-items: center; gap: 10px; }
+.karaoke-room-code > div, .karaoke-room-details > span { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.karaoke-room-code small, .karaoke-room-details strong { color: #8b8b97; font-size: 9px; font-weight: 550; }
+.karaoke-room-code strong { color: #563fc3; font: 800 24px/1 "Manrope", sans-serif; letter-spacing: 3px; }
+.karaoke-room-code .button { padding: 0 9px; font-size: 10px; }
+.karaoke-room-details { display: flex; flex-wrap: wrap; gap: 13px 20px; }
+.karaoke-room-details > span { color: #41414c; font-size: 10px; }
+.karaoke-room-active > .button { white-space: nowrap; }
+.karaoke-room-connection { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.karaoke-room-connection audio { width: min(230px, 100%); height: 34px; }
+.karaoke-room-leave { display: inline-flex; grid-column: 1 / -1; align-items: center; gap: 5px; justify-self: end; padding: 4px; border: 0; color: #858692; background: transparent; font-size: 10px; }
+.karaoke-room-footnote { margin: 13px 0 0; color: #9999a3; font-size: 10px; line-height: 1.55; }
+html[data-theme="dark"] .topbar-player-link { border-color: #3d3657; color: #c4b8ff; background: #292536; }
+html[data-theme="dark"] .karaoke-step-heading h2,
+html[data-theme="dark"] .karaoke-room-heading h2,
+html[data-theme="dark"] .karaoke-room-details > span { color: #edf0f7; }
+html[data-theme="dark"] .karaoke-room-card { border-color: #343440; background: linear-gradient(135deg, #20222b, #211f2b); }
+html[data-theme="dark"] .karaoke-step-heading p,
+html[data-theme="dark"] .karaoke-room-heading p,
+html[data-theme="dark"] .karaoke-room-footnote { color: #a7adbb; }
+html[data-theme="dark"] .karaoke-step-record { border-color: #373741; }
 @media (max-width: 900px) { .global-audio-player { left: 225px; grid-template-columns: minmax(110px, .8fr) minmax(240px, 1.8fr) 30px 30px; gap: 7px; padding-right: 14px; padding-left: 14px; } .mini-player-controls { grid-template-columns: auto minmax(70px, 1fr); gap: 7px; } .player-transport { gap: 6px; } }
 @media (max-width: 650px) {
   .app-shell-player .content-area { padding-bottom: 118px; }
+  .topbar-player-link { width: 35px; min-height: 34px; justify-content: center; padding: 0; }
+  .topbar-player-link span, .topbar-player-link i { display: none; }
   .global-audio-player { left: 0; min-height: 82px; grid-template-columns: minmax(72px, .8fr) minmax(185px, 1.8fr) 28px; gap: 5px; padding: 7px 8px; }
   .audio-player-track { gap: 6px; }
   .audio-player-art { width: 34px; height: 34px; }
@@ -685,6 +728,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .full-player-art { width: min(300px, 72vw); }
   .full-player-track-copy h1 { font-size: 20px; }
   .player-queue { max-height: 320px; }
+  .karaoke-room-card { padding: 15px; }
+  .karaoke-room-actions { align-items: stretch; flex-direction: column; }
+  .karaoke-room-divider { text-align: center; }
+  .karaoke-room-active { grid-template-columns: minmax(0, 1fr); }
+  .karaoke-room-active > .button { justify-self: stretch; }
+  .karaoke-room-leave { grid-column: 1; }
 }
 .admin-page { max-width: 1320px; }
 .admin-icon { color: #7657ee; background: #f0ecff; }

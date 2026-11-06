@@ -411,6 +411,9 @@ export function Dashboard({ token, user: initialUser, setUser, onLogout }) {
           <div className="topbar-actions">
             <div className="topbar-status"><span className="status-pulse" /> {t('Your music, in one place')}</div>
             <DisplayPreferences />
+            <button className="topbar-player-link" type="button" onClick={openFullPlayer} aria-label={t('Open music player')} title={t('Open music player')}>
+              <Music2 size={16} /><span>{t('Music player')}</span>{currentPlayback && isPlaying && <i aria-hidden="true" />}
+            </button>
             <button className="profile-chip" onClick={() => navigate('profile')} aria-label={t('Open profile')}>
               <Avatar user={profile} size="small" /><span>{profile?.name || t('Your account')}</span><ChevronDown size={14} />
             </button>

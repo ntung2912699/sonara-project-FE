@@ -17,6 +17,20 @@ A React single-page music app for the Laravel API in the neighboring `music-app`
 
 The app includes email/password login, OTP registration, password reset, catalog search, favorites, playlists, library downloads, profile editing, TikTok rights-review requests, and lossless audio processing. Accounts promoted to admin by the backend Artisan command see the management dashboard after login, with account, song, and song-report controls. Social sign-in requires provider SDKs/tokens from a registered client application.
 
+## Mobile app source
+
+The same React app is wrapped with Capacitor for Android and iOS. The native project folders (`android/` and `ios/`) are part of this source repository; app data and sign-in use the configured Sonora API.
+`mobile:sync` builds with `.env.mobile`, which targets the production Sonora API by default. Change that public API URL in `.env.mobile` before building for another environment.
+
+```powershell
+npm install
+npm run mobile:sync
+npm run mobile:android
+npm run mobile:ios
+```
+
+Android builds require Android Studio and a compatible JDK. iOS builds and App Store submission require macOS, Xcode, an Apple Developer account, and signing/provisioning setup. The Windows development environment can edit the iOS source but cannot produce the signed iOS app.
+
 ## Project structure
 
 ```text
@@ -40,8 +54,11 @@ src/
     catalog/    Music discovery, search, song upload, and reports
     dashboard/  Authenticated app shell and data orchestration
     library/    Favorites and downloads
+    player/     Persistent player, queue, and Now Playing screen
     playlists/  Playlist management, dialogs, and artwork
     profile/    Account profile settings
-    studio/     Lossless audio upload and processing
+    studio/     Karaoke, duet rooms, and lossless audio processing
     tiktok/     Rights-review requests
+android/        Capacitor Android project
+ios/            Capacitor iOS project
 ```

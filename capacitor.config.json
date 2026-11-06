@@ -1,0 +1,11 @@
+{
+  "appId": "com.sonora.music",
+  "appName": "Sonora",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

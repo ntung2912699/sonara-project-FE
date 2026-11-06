@@ -6,6 +6,7 @@ import { Check, Download, FileAudio2, LoaderCircle, Mic, Music2, Pause, Play, Se
 import { InlineMessage } from '../../common/message/Message.jsx';
 import { usePreferences } from '../../common/preferences/PreferencesContext.jsx';
 import { YouTubeBeatPlayer } from './YouTubeBeatPlayer.jsx';
+import { KaraokeRoomPanel } from './KaraokeRoomPanel.jsx';
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const RECORDING_TYPES = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'];
@@ -30,6 +31,8 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
   const [matches, setMatches] = useState([]);
   const [youtubeMatches, setYoutubeMatches] = useState([]);
   const [youtubeSearchError, setYoutubeSearchError] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchComplete, setSearchComplete] = useState(false);
   const [selectedBeat, setSelectedBeat] = useState(null);
   const [title, setTitle] = useState('');
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
@@ -40,6 +43,7 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
   const [elapsed, setElapsed] = useState(0);
   const [recordedBlob, setRecordedBlob] = useState(null);
   const [drafts, setDrafts] = useState([]);
+  const [duetStreams, setDuetStreams] = useState({ local: null, remote: null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const beatAudio = useRef(null);
@@ -58,6 +62,9 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
   const youtubePlayer = useRef(null);
   const chunks = useRef([]);
   const localBeatUrl = useRef(null);
+  const duetStreamsRef = useRef(duetStreams);
+  const remoteRecordingSource = useRef(null);
+  duetStreamsRef.current = duetStreams;
 
   const recordedUrl = useMemo(() => recordedBlob ? URL.createObjectURL(recordedBlob) : null, [recordedBlob]);
 
@@ -75,11 +82,15 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
       setMatches([]);
       setYoutubeMatches([]);
       setYoutubeSearchError('');
+      setSearchLoading(false);
+      setSearchComplete(false);
       return undefined;
     }
     setMatches([]);
     setYoutubeMatches([]);
     setYoutubeSearchError('');
+    setSearchLoading(true);
+    setSearchComplete(false);
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       Promise.allSettled([
@@ -101,6 +112,8 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
             ? t('YouTube search requires an API key configured by the service administrator.')
             : t('YouTube search could not be completed. Try again later.'));
         }
+        setSearchLoading(false);
+        setSearchComplete(true);
       });
     }, 250);
     return () => {
@@ -129,6 +142,21 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
       reverbGain.current.gain.setTargetAtTime(reverbAmount, audioContext.current.currentTime, 0.02);
     }
   }, [reverbAmount]);
+
+  useEffect(() => {
+    const stream = duetStreams.remote;
+    const context = audioContext.current;
+    const destination = recordingDestination.current;
+    if (!recording || !stream || !context || !destination) return undefined;
+    remoteRecordingSource.current?.disconnect();
+    const source = context.createMediaStreamSource(stream);
+    source.connect(destination);
+    remoteRecordingSource.current = source;
+    return () => {
+      source.disconnect();
+      if (remoteRecordingSource.current === source) remoteRecordingSource.current = null;
+    };
+  }, [duetStreams.remote, recording]);
 
   useEffect(() => {
     const timer = recording ? window.setInterval(() => setElapsed((value) => value + 1), 1000) : null;
@@ -222,7 +250,9 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
     if (activeRecorder?.state === 'recording') activeRecorder.stop();
     if (beatAudio.current) beatAudio.current.pause();
     youtubePlayer.current?.pauseVideo();
-    microphone.current?.getTracks().forEach((track) => track.stop());
+    if (microphone.current !== duetStreamsRef.current.local) {
+      microphone.current?.getTracks().forEach((track) => track.stop());
+    }
     setRecording(false);
   }
 
@@ -260,7 +290,7 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
         beatSourceElement.current = beatAudio.current;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = duetStreamsRef.current.local || await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
       microphone.current = stream;
@@ -326,8 +356,12 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
         echoGain.current = null;
         echoFeedback.current = null;
         reverbGain.current = null;
-        microphone.current?.getTracks().forEach((track) => track.stop());
+        if (microphone.current !== duetStreamsRef.current.local) {
+          microphone.current?.getTracks().forEach((track) => track.stop());
+        }
         microphone.current = null;
+        remoteRecordingSource.current?.disconnect();
+        remoteRecordingSource.current = null;
       };
       recorder.current = activeRecorder;
       setElapsed(0);
@@ -340,7 +374,9 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
       }
       setRecording(true);
     } catch (recordingError) {
-      microphone.current?.getTracks().forEach((track) => track.stop());
+      if (microphone.current !== duetStreamsRef.current.local) {
+        microphone.current?.getTracks().forEach((track) => track.stop());
+      }
       microphone.current = null;
       if (recorder.current?.state === 'recording') recorder.current.stop();
       else {
@@ -430,18 +466,38 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
     setRightsConfirmed(false);
   }
 
+  async function attachRoomBeat(beat) {
+    if (beat.type === 'youtube') {
+      chooseYouTubeBeat({ video_id: beat.id, title: beat.title, channel: beat.artist });
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.get(`/tracks/${beat.id}`, token);
+      await chooseCatalogBeat(result.data);
+    } catch (requestError) {
+      setError(messageOf(requestError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return <div className="page-content karaoke-page">
     <div className="section-heading collection-heading"><div className="collection-icon studio-icon"><Mic size={21} /></div><div><div className="eyebrow section-eyebrow">{t('KARAOKE STUDIO')}</div><h1>{t('Sing your song')}</h1><p>{t('Choose a beat, record your voice with it, then save a draft or publish your recording.')}</p></div></div>
-    <div className="karaoke-notice"><Music2 size={17} /><span>{t('Lyrics are not included in this first version. Use headphones when monitoring your voice to prevent audio feedback.')} {t('Choose an instrumental Sonora track when you need a backing beat.')}</span></div>
+    <div className="karaoke-notice"><Music2 size={17} /><span>{t('Lyrics are not included in this first version. Use headphones when monitoring your voice to prevent audio feedback.')} {t('Use headphones for live duet to prevent audio feedback.')} {t('Choose an instrumental Sonora track when you need a backing beat.')}</span></div>
 
     <section className="submission-card karaoke-card">
+      <div className="karaoke-step-heading"><span>1</span><div><h2>{t('Choose a backing beat')}</h2><p>{t('Search Sonora or YouTube, or upload an audio file.')}</p></div></div>
       <div className="karaoke-search-wrap">
-        <label className="field-label" htmlFor="karaoke-search">{t('Search catalog beats')}</label>
+        <label className="field-label" htmlFor="karaoke-search">{t('Search beats')}</label>
         <div className="search-box karaoke-search"><Search size={16} /><input id="karaoke-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('Search by song or artist')} disabled={busy || recording} />
-          {(matches.length > 0 || youtubeMatches.length > 0 || youtubeSearchError) && <div className="karaoke-results">
+          {query.trim().length >= 2 && (matches.length > 0 || youtubeMatches.length > 0 || youtubeSearchError || searchLoading || searchComplete) && <div className="karaoke-results">
+            {searchLoading && <p className="karaoke-search-state"><LoaderCircle size={14} className="spin" />{t('Searching Sonora and YouTube…')}</p>}
             {matches.length > 0 && <><div className="karaoke-result-source">{t('SONORA CATALOG')}</div>{matches.map((track) => <button key={`sonora-${track.id}`} onClick={() => chooseCatalogBeat(track)} disabled={busy || recording}><FileAudio2 size={16} /><span><strong>{track.title}</strong><small>{track.artist} · {t('Sonora audio · confirm it is instrumental')}</small></span><Play size={14} /></button>)}</>}
             {youtubeMatches.length > 0 && <><div className="karaoke-result-source">{t('YOUTUBE VIDEOS')}</div>{youtubeMatches.map((video) => <button key={`youtube-${video.video_id}`} onClick={() => chooseYouTubeBeat(video)} disabled={busy || recording}>{video.thumbnail ? <img className="youtube-result-thumb" src={video.thumbnail} alt="" /> : <Music2 size={16} />}<span><strong>{video.title}</strong><small>{video.channel} · YouTube</small></span><Play size={14} /></button>)}</>}
             {youtubeSearchError && <p className="youtube-search-note">{youtubeSearchError}</p>}
+            {!searchLoading && searchComplete && matches.length === 0 && youtubeMatches.length === 0 && !youtubeSearchError && <p className="karaoke-search-state">{t('No beats found. Try another search.')}</p>}
           </div>}
         </div>
         <div className="karaoke-or">{t('or')}</div>
@@ -457,6 +513,10 @@ export function KaraokeStudio({ token, onPublished, showToast }) {
         <button type="button" className="icon-button" aria-label={t('Remove beat')} disabled={busy || recording} onClick={() => { beatAudio.current?.pause(); youtubePlayer.current?.stopVideo(); if (localBeatUrl.current) URL.revokeObjectURL(localBeatUrl.current); localBeatUrl.current = null; youtubePlayer.current = null; setSelectedBeat(null); setRecordedBlob(null); }}><Trash2 size={15} /></button>
       </div>
 
+      <KaraokeRoomPanel token={token} selectedBeat={selectedBeat} onAttachBeat={attachRoomBeat} onSyncStart={startRecording}
+        onStreamsChange={(local, remote) => setDuetStreams({ local, remote })} recording={recording} />
+
+      <div className="karaoke-step-heading karaoke-step-record"><span>2</span><div><h2>{t('Record your performance')}</h2><p>{t('Use headphones, adjust your voice effects, then start singing.')}</p></div></div>
       <div className="karaoke-record-controls">
         <button className="button button-primary" type="button" onClick={recording ? stopRecording : startRecording} disabled={busy || (!selectedBeat && !recording)}>
           {busy ? <LoaderCircle className="spin" size={16} /> : recording ? <Pause size={16} /> : <Mic size={16} />}
